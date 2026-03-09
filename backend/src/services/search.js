@@ -29,5 +29,5 @@ export async function search(rewrittenQuery, hydeEmbedding, options = {}) {
       `   ${i + i}. [${chunk.language}] ${chunk.source} > "${chunk.section}" (score: ${chunk.rrf_score.toFixed(4)})`,
     );
   });
-  return data
+  return data;
 }
