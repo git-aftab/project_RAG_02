@@ -18,8 +18,10 @@ app.use(
 );
 
 import healthCheckRouter from "./routes/healthCheck.routes.js";
+import ingestRouter from "./routes/ingest.routes.js"
 
 app.use("/api/v1/healthcheck", healthCheckRouter);
+app.use("/api/v1/ingest",ingestRouter)
 
 app.get("/", (req, res) => {
   res.send("Hey this is RAG02");

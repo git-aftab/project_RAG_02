@@ -1,24 +1,26 @@
-import { readFileSync } from "fs";
-import { join, basename } from "path";
+import { readFileSync, readdirSync } from "fs";
+import { dirname, join, basename } from "path";
+import { fileURLToPath } from "url";
 import { supabase } from "../config/supabase.js";
 import { embedMany } from "./embedder.js";
 import { chunkMarkdown, detectLanguage, extractTags } from "./chunker.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function loadDocuments(docsDir) {
-  const files = readFileSync(docsDir).filter((f) => {
-    f.endswith(".md");
-  });
+  // ✅ Use readdirSync to read the DIRECTORY
+  const files = readdirSync(docsDir).filter((f) => f.endsWith(".md"));
 
   return files.map((file) => ({
     filename: file,
+    // ✅ Then readFileSync to read each FILE
     content: readFileSync(join(docsDir, file), "utf-8"),
   }));
 }
 
-async function ingest() {
-  // __dirname equivalent in ESM
-  const docsDir = new URL("../documents", import.meta.url).pathname;
+export async function ingest() {
+  const docsDir = join(__dirname, "..", "documents");
 
   console.log("\n🚀 Starting ingest pipeline...\n");
 
