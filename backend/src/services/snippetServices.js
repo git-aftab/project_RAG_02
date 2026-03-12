@@ -1,7 +1,4 @@
 import { supabase } from "../config/supabase.js";
-// import {AsyncHandler} from "../utils/AsyncHandler.js"
-import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
 import { embed } from "./embedder.js";
 
 export const addSnippet = async ({
