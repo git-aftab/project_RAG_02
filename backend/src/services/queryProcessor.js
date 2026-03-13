@@ -2,8 +2,8 @@
 // 1. query rewriting -> clean up the vague user queries (fixes poorly worded queries)
 // 2. HyDE -> generate hypothetical answer -> embed that (makes embedding much closer to stored chunks)
 
-import { CHAT_MODEL, OPENROUTER_BASE_URL } from "../config/constant";
-import { embed } from "./embedder";
+import { CHAT_MODEL, OPENROUTER_BASE_URL } from "../config/constant.js";
+import { embed } from "./embedder.js";
 
 // call LLM() for query and HyDE generation
 async function callLLM(prompt) {

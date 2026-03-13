@@ -18,10 +18,12 @@ app.use(
 );
 
 import healthCheckRouter from "./routes/healthCheck.routes.js";
-import ingestRouter from "./routes/ingest.routes.js"
+import ingestRouter from "./routes/ingest.routes.js";
+import searchRouter from "./routes/search.routes.js";
 
 app.use("/api/v1/healthcheck", healthCheckRouter);
-app.use("/api/v1/ingest",ingestRouter)
+app.use("/api/v1/ingest", ingestRouter);
+app.use("/api/v1/search", searchRouter);
 
 app.get("/", (req, res) => {
   res.send("Hey this is RAG02");

@@ -109,6 +109,12 @@ export async function ingest() {
   console.log(
     `\n✅ Ingest complete! ${totalInserted} chunks stored in Supabase.\n`,
   );
+
+   return {
+    success: true,
+    totalChunks: allChunks.length,
+    documents: documents.map(d => d.filename)
+  };
 }
 
 ingest().catch(console.error);
