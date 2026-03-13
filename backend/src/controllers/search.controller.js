@@ -28,4 +28,10 @@ export const searchController = AsyncHandler(async (req, res) => {
   }
 
   const answer = await generateAnswer(query, chunks);
+
+  if(!answer || answer.trim().length === 0){
+    throw new ApiError(404, "Failed to get the answer")
+  }
+
+  res.status(200).json(new ApiResponse(200, answer, "Search Successful"));
 });
