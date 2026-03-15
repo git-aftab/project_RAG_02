@@ -6,7 +6,7 @@ export const addSnippet = async ({
   description,
   language,
   tags = [],
-  services = "",
+  section = "",
 }) => {
   // 1. Create embed-friendly text
   const textToEmbed = `${section} ${description} ${language} ${tags.join(" ")}`;
