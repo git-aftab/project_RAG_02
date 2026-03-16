@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { AsyncHandler } from "../utils/AsyncHandler.js";
-import { processQueery } from "../services/queryProcessor.js";
+import { processQuery } from "../services/queryProcessor.js";
 import { search } from "../services/search.js";
 import { generateAnswer } from "../services/rag.js";
 
@@ -12,9 +12,10 @@ export const searchController = AsyncHandler(async (req, res) => {
     throw new ApiError(404, "Please enter a Query to search.");
   }
 
-  const { rewrittenQuery, hydeEmbedding } = await processQueery(query);
+  const { rewrittenQuery, hydeEmbedding } = await processQuery(query);
 
   //   search with optional filter
+  const searchOptions = {};
   if (language) searchOptions.language = language;
   if (tags) searchOptions.tags = tags;
 

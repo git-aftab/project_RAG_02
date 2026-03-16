@@ -48,10 +48,27 @@ export async function embedMany(texts) {
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Batch embedding failed: ${response.statusText} - ${errorText}`,
+    );
   }
 
   const data = await response.json();
 
+  // ✅ DEBUG: Log the response structure
+  console.log(
+    "🔍 OpenRouter embedMany response:",
+    JSON.stringify(data, null, 2),
+  );
+
+  // ✅ FIXED: Check if data.data exists and is an array
+  if (!data.data || !Array.isArray(data.data)) {
+    console.error("❌ Unexpected response structure:", data);
+    throw new Error("Invalid embedding response: missing data.data array");
+  }
+
+  // Sort by index and return embeddings
   return data.data
     .sort((a, b) => a.index - b.index)
     .map((item) => item.embedding);

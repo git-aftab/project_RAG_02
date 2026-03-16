@@ -1,119 +1,64 @@
-// this program has 2 jobs:
-// 1. query rewriting -> clean up the vague user queries (fixes poorly worded queries)
-// 2. HyDE -> generate hypothetical answer -> embed that (makes embedding much closer to stored chunks)
-
-import { CHAT_MODEL, OPENROUTER_BASE_URL } from "../config/constant.js";
 import { embed } from "./embedder.js";
+import { CHAT_MODEL, GROQ_BASE_URL } from "../config/constant.js";
 
-// call LLM() for query and HyDE generation
 async function callLLM(prompt) {
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      module: CHAT_MODEL,
-      message: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.1, //Low = deterministic, good for query rewriting,
-      max_token: 200,
+      model: CHAT_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 200,
+      temperature: 0.1,
     }),
   });
 
   if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`LLM call failed (${response.status}): ${err}`);
+    const errorText = await response.text();
+    throw new Error(`LLM call failed: ${response.statusText} - ${errorText}`);
   }
 
   const data = await response.json();
-  console.log(data);
   return data.choices[0].message.content.trim();
 }
 
-// Takes a raw user query → returns a cleaner, more precise version
-//
-// Examples:
-//   "how do i do the reverse thing for strings" → "reverse a string"
-//   "remove same items from list"               → "remove duplicates from array"
-//   "add numbers together javascript"           → "sum array of numbers javascript"
-//
-// Why this helps:
-//   The embedding model performs much better on clean technical
-//   queries than on casual conversational language.
 export async function rewriteQuery(rawQuery) {
-  const prompt = `You are a search query optimizer for a code documentation search engine.
-Rewrite the following user query to be more precise, technical, and searchable.
-Return ONLY the rewritten query — no explanation, no quotes, no punctuation at the end.
+  const prompt = `Rewrite this search query to be more technical and precise. Return ONLY the rewritten query, nothing else.
 
-User query: "${rawQuery}"`;
+Query: "${rawQuery}"
+
+Rewritten query:`;
 
   try {
-    const reWritten = await callLLM(prompt);
-    console.log(`Query reWrite: ${rawQuery}     ->      ${reWritten}`);
-    return reWritten;
+    const rewritten = await callLLM(prompt);
+    return rewritten;
   } catch (error) {
-    // if reWrite fails, fall back to original query - don't block the search
-    console.warn("Query reWrite failed, Using original search!!");
+    console.warn("Query rewrite failed, using original:", error.message);
     return rawQuery;
   }
 }
 
-// HyDE = Hypothetical Document Embedding
-//
-// The problem with embedding a query directly:
-//   Query: "how to reverse a string?"
-//   This QUESTION lives in a different vector space than
-//   ANSWERS like "def reverse_string(s): return s[::-1]"
-//   So cosine similarity is lower than it should be.
-//
-// HyDE solution:
-//   1. Ask LLM to write a SHORT hypothetical answer (code snippet)
-//   2. Embed THAT instead of the original query
-//   3. The hypothetical answer looks like stored chunks → closer vectors
-//      → higher cosine similarity → better retrieval
-//
-// Returns: the embedding vector of the hypothetical answer
-
+// HyDE 
 export async function generateHyDE(query) {
-  const prompt = `Write a SHORT code snippet and one-line explaination that answers this question.Be concise. Use Proper code formatting. 2-5 lines of code maximum.
-    
-    Question: ${query}`;
+  const prompt = `You are a code expert. Generate a short code snippet that would answer this query: "${query}"
+
+Return ONLY the code snippet, no explanations.`;
 
   try {
     const hypotheticalAnswer = await callLLM(prompt);
-    console.log(`HyDE Answer: ${hypotheticalAnswer.subString(0, 80)}....`);
-    // embed the hypothectical answer.
-    const embedHypoAns = await embed(hypotheticalAnswer);
-    return embedHypoAns;
+    const hydeEmbedding = await embed(hypotheticalAnswer);
+    return hydeEmbedding;
   } catch (error) {
-    console.warn("HyDE failed, FAlling back to the original query");
+    console.warn("HyDE failed, using query embedding:", error.message);
     return await embed(query);
   }
 }
 
-// processQuery()
-// Main export — runs BOTH techniques in parallel
-//
-// Returns:
-// {
-//   rewrittenQuery: "reverse a string",     ← for keyword search leg
-//   hydeEmbedding:  [0.23, -0.81, ...]      ← for semantic search leg
-// }
-//
-// The two results are used separately in search.js:
-//   rewrittenQuery → goes into the keyword (FTS) leg
-//   hydeEmbedding  → goes into the semantic (vector) leg
-
-export async function processQueery(rawQuery) {
-  console.log("\n processing Query....");
-
-  //   Run both the function in parallel - no reason to wait for one before the other.
+// Process Query 
+export async function processQuery(rawQuery) {
   const [rewrittenQuery, hydeEmbedding] = await Promise.all([
     rewriteQuery(rawQuery),
     generateHyDE(rawQuery),
