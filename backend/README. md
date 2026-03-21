@@ -1,0 +1,422 @@
+# Code Snippet RAG - Backend
+
+A production-ready RAG (Retrieval-Augmented Generation) system for searching code snippets using hybrid search, query enhancement, and AI-powered answer generation.
+
+## 🚀 Features
+
+- **Hybrid Search**: Combines semantic (vector) and keyword (FTS) search with RRF ranking
+- **Query Enhancement**: 
+  - Query rewriting for better search accuracy
+  - HyDE (Hypothetical Document Embeddings) for semantic matching
+- **Advanced Filtering**: Filter by programming language and tags
+- **AI-Powered Answers**: Uses Groq's Llama 3.3 for natural language responses
+- **Fast Embeddings**: OpenRouter with OpenAI's text-embedding-3-small
+- **Scalable Database**: Supabase with pgvector for vector similarity search
+
+---
+
+## 📋 Tech Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Runtime** | Node.js (ESM) | Server runtime |
+| **Database** | Supabase + pgvector | Vector database |
+| **Embeddings** | OpenRouter (OpenAI) | 1536-dim vectors |
+| **LLM** | Groq (Llama 3.3 70B) | Query rewriting, HyDE, answers |
+| **Search** | Hybrid (semantic + FTS) | Retrieval |
+| **Framework** | Express.js | API server |
+
+---
+
+## 🗂️ Project Structure
+
+```
+backend/
+├── src/
+│   ├── config/
+│   │   ├── constant.js          # Configuration constants
+│   │   └── supabase.js           # Supabase client
+│   ├── controllers/
+│   │   ├── addSnippet.controller.js
+│   │   ├── healthCheck.controller.js
+│   │   ├── ingest.controller.js
+│   │   └── search.controller.js
+│   ├── routes/
+│   │   ├── api.routes.js         # Main router
+│   │   ├── addSnippet.routes.js
+│   │   ├── healthCheck.routes.js
+│   │   ├── ingest.routes.js
+│   │   └── search.routes.js
+│   ├── services/
+│   │   ├── chunker.js            # Document chunking
+│   │   ├── embedder.js           # Embedding generation
+│   │   ├── ingest.js             # Document ingestion pipeline
+│   │   ├── queryProcessor.js     # Query rewriting + HyDE
+│   │   ├── rag.js                # Answer generation
+│   │   ├── search.js             # Hybrid search
+│   │   └── snippetServices.js    # Add snippet service
+│   ├── utils/
+│   │   ├── ApiError.js           # Error handling
+│   │   ├── ApiResponse.js        # Response formatting
+│   │   └── AsyncHandler.js       # Async wrapper
+│   ├── db/
+│   │   └── test.db.js            # Database connection test
+│   └── documents/                # Markdown files for ingestion
+│       ├── python-strings.md
+│       └── js-arrays.md
+├── tests/
+│   └── test-rag.js               # Complete test suite (43 tests)
+├── .env                          # Environment variables
+├── .gitignore
+├── package.json
+├── package-lock.json
+└── supabase.sql                  # Database schema
+```
+
+---
+
+## 🔧 Installation
+
+### Prerequisites
+
+- Node.js v18+ 
+- Supabase account (free tier)
+- OpenRouter API key (free)
+- Groq API key (free)
+
+### Setup Steps
+
+1. **Clone the repository**
+```bash
+cd backend
+```
+
+2. **Install dependencies**
+```bash
+npm install
+```
+
+3. **Create `.env` file**
+```bash
+# .env
+
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
+OPENROUTER_API_KEY=sk-or-v1-your_key
+GROQ_API_KEY=gsk_your_key
+```
+
+**Get API Keys:**
+- **Supabase**: https://supabase.com → Create project → Settings → API
+- **OpenRouter**: https://openrouter.ai → Sign up → Get API key
+- **Groq**: https://console.groq.com → Create API key
+
+4. **Set up Supabase database**
+
+Run the SQL in `supabase.sql` in your Supabase SQL Editor:
+- Go to your Supabase project → SQL Editor
+- Copy and paste the entire `supabase.sql` file
+- Click "Run"
+
+This creates:
+- `chunks` table with vector embeddings
+- FTS (Full-Text Search) indexes
+- `hybrid_search()` function for RRF ranking
+
+5. **Ingest sample documents**
+```bash
+# Start server
+node src/index.js
+
+# In another terminal, run ingest
+curl -X POST http://localhost:3000/api/v1/ingest
+```
+
+---
+
+## 🚀 Usage
+
+### Start the Server
+
+```bash
+node src/index.js
+```
+
+Server runs on: `http://localhost:3000`
+
+---
+
+## 📡 API Endpoints
+
+### Health Check
+```bash
+GET /api/v1/healthcheck
+```
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "success": true,
+  "data": { "message": "Api Running Successfully" },
+  "msg": "success"
+}
+```
+
+---
+
+### Ingest Documents
+```bash
+POST /api/v1/ingest
+```
+
+**Description:** Processes markdown files from `/documents` folder, chunks them, generates embeddings, and stores in database.
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "success": true,
+  "data": {
+    "totalChunks": 23,
+    "documents": ["python-strings.md", "js-arrays.md"]
+  },
+  "msg": "Ingestion Successful."
+}
+```
+
+---
+
+### Search (RAG)
+```bash
+POST /api/v1/search
+```
+
+**Request Body:**
+```json
+{
+  "query": "how to reverse a string in python",
+  "language": "python",  // optional
+  "tags": ["string"]     // optional
+}
+```
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "success": true,
+  "data": {
+    "answer": "To reverse a string in Python, use slicing with [::-1]...",
+    "chunks": [
+      {
+        "id": 1,
+        "content": "def reverse_string(s):\n    return s[::-1]",
+        "source": "python-strings.md",
+        "section": "String Reversal",
+        "language": "python",
+        "tags": ["string", "reverse"],
+        "rrf_score": 0.0328
+      }
+    ],
+    "metadata": {
+      "rewrittenQuery": "reverse string python",
+      "totalChunks": 3
+    }
+  },
+  "msg": "Search Successful"
+}
+```
+
+---
+
+### Add Snippet
+```bash
+POST /api/v1/snippets/add
+```
+
+**Request Body:**
+```json
+{
+  "code": "const sum = arr.reduce((a, b) => a + b, 0);",
+  "description": "Sum all numbers in an array",
+  "language": "javascript",
+  "tags": ["array", "reduce", "sum"],
+  "section": "Array Operations"  // optional
+}
+```
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "success": true,
+  "data": {
+    "id": 24,
+    "content": "const sum = arr.reduce((a, b) => a + b, 0);",
+    "source": "user-submitted",
+    "language": "javascript",
+    "tags": ["array", "reduce", "sum"]
+  },
+  "msg": "Snippet Added Successfully."
+}
+```
+
+---
+
+## 🧪 Testing
+
+### Run Complete Test Suite
+```bash
+node tests/test-rag.js
+```
+
+**Tests include:**
+- Health check
+- Ingest endpoint
+- Basic search queries
+- Language filtering
+- Tag filtering
+- Complex filter combinations
+- Edge cases
+- Hybrid search effectiveness
+- Response structure validation
+
+**Expected output:** 37+ tests passed
+
+---
+
+## 🏗️ Architecture
+
+### RAG Pipeline Flow
+
+```
+User Query
+    ↓
+Query Processor (parallel)
+    ├── Query Rewriting (Groq LLM)
+    └── HyDE Generation (Groq LLM → Embedding)
+    ↓
+Hybrid Search (Supabase)
+    ├── Semantic Search (vector similarity)
+    └── Keyword Search (FTS)
+    ↓
+RRF Ranking (Reciprocal Rank Fusion)
+    ↓
+Top K Chunks Retrieved
+    ↓
+Answer Generation (Groq LLM)
+    ↓
+JSON Response to User
+```
+
+### Key Concepts
+
+**Chunking Strategy:**
+- Structure-aware: splits on `## headings` first
+- Size-based: max 400 tokens per chunk
+- Overlap: 80 tokens for context preservation
+
+**Hybrid Search:**
+- Semantic: cosine similarity (`<=>`) on embeddings
+- Keyword: Full-Text Search with `ts_rank`
+- Fusion: RRF formula `1/(rank + 60)`
+
+**Query Enhancement:**
+- Rewriting: makes queries more technical/precise
+- HyDE: embeds hypothetical answer instead of query
+
+---
+
+## 🔐 Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `SUPABASE_URL` | Supabase project URL | `https://xxx.supabase.co` |
+| `SUPABASE_ANON_KEY` | Supabase anon/public key | `eyJhbGci...` |
+| `OPENROUTER_API_KEY` | OpenRouter API key | `sk-or-v1-...` |
+| `GROQ_API_KEY` | Groq API key | `gsk_...` |
+
+---
+
+## 📊 Configuration
+
+Edit `src/config/constant.js` to customize:
+
+```javascript
+export const EMBEDDING_MODEL = "openai/text-embedding-3-small";
+export const EMBEDDING_DIMENSIONS = 1536;
+export const CHAT_MODEL = "llama-3.3-70b-versatile";
+
+export const CHUNK_SIZE = 400;           // Max tokens per chunk
+export const CHUNK_OVERLAP = 80;         // Overlap for context
+export const RETRIEVAL_COUNT = 8;        // Chunks to retrieve
+export const FINAL_CONTEXT_COUNT = 3;    // Chunks sent to LLM
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Ingest fails with "table chunks does not exist"
+**Solution:** Run `supabase.sql` in Supabase SQL Editor
+
+### "ENOENT: no such file or directory"
+**Solution:** Ensure markdown files exist in `src/documents/` folder
+
+### "Cannot read properties of undefined (reading 'sort')"
+**Solution:** Check OpenRouter API key is valid
+
+### "429 Too Many Requests" from Groq
+**Solution:** Wait 60 seconds (free tier: 30 req/min)
+
+### Database connection errors
+**Solution:** Verify `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `.env`
+
+---
+
+## 📈 Performance
+
+- **Ingest:** ~23 chunks in ~10 seconds
+- **Search:** < 1 second (with Groq)
+- **Embeddings:** ~$0.0000002 per request (OpenRouter)
+- **LLM:** Free (Groq free tier)
+
+---
+
+## 🚧 Future Enhancements
+
+- [ ] Reranking with Cohere
+- [ ] Multi-query retrieval
+- [ ] Conversation memory
+- [ ] User authentication
+- [ ] Rate limiting
+- [ ] Caching layer
+- [ ] Streaming responses
+
+---
+
+## 📝 License
+
+MIT
+
+---
+
+## 👤 Author
+
+Built as part of RAG learning project series.
+
+---
+
+## 🙏 Acknowledgments
+
+- OpenRouter for affordable embeddings
+- Groq for lightning-fast inference
+- Supabase for excellent vector database
+- Anthropic for RAG architecture guidance
+
+---
+
+## 📞 Support
+
+For issues or questions, please open an issue on GitHub or contact via email.
